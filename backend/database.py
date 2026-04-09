@@ -35,7 +35,7 @@ async def get_pool() -> asyncpg.Pool:
             async with pool.acquire() as conn:
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS users (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        id UUID PRIMARY KEY,
                         name VARCHAR(255) NOT NULL,
                         email VARCHAR(255) UNIQUE NOT NULL,
                         phone VARCHAR(50) DEFAULT '',

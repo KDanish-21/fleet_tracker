@@ -48,11 +48,11 @@ async def register_user(name: str, email: str, phone: Optional[str], password: s
 
         user = await conn.fetchrow(
             """
-            INSERT INTO users (name, email, phone, hashed_password)
-            VALUES ($1, LOWER($2), $3, $4)
+            INSERT INTO users (id, name, email, phone, hashed_password)
+            VALUES ($1, $2, LOWER($3), $4, $5)
             RETURNING id, name, email, phone, created_at
             """,
-            name, email, phone or "", hash_password(password),
+            uuid.uuid4(), name, email, phone or "", hash_password(password),
         )
         return dict(user)
 
