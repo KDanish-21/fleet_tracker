@@ -1,7 +1,11 @@
 import axios from 'axios'
 
+const API_BASE = import.meta.env.PROD
+  ? 'https://fleet-tracker-5od4.onrender.com/api'
+  : '/api'
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   timeout: 15000,
 })
 
