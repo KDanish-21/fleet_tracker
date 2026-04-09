@@ -6,38 +6,49 @@ pool: asyncpg.Pool = None
 _initialized = False
 
 
-def _get_ssl():
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
-
-
 async def get_pool() -> asyncpg.Pool:
     """Get or create the connection pool (lazy init)."""
     global pool, _initialized
     if pool is None:
-        pool = await asyncpg.create_pool(
-            settings.DATABASE_URL,
-            min_size=1,
-            max_size=5,
-            ssl=_get_ssl(),
-            command_timeout=15,
-        )
+        # Strip sslmode from URL (asyncpg handles SSL via parameter, not URL)
+        dsn = settings.DATABASE_URL.split("?")[0]
+
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+
+        try:
+            pool = await asyncpg.create_pool(
+                dsn,
+                min_size=1,
+                max_size=5,
+                ssl=ssl_ctx,
+                command_timeout=15,
+            )
+            print("Database pool created.")
+        except Exception as e:
+            print(f"ERROR creating DB pool: {e}")
+            raise
+
     if not _initialized:
-        async with pool.acquire() as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    name VARCHAR(255) NOT NULL,
-                    email VARCHAR(255) UNIQUE NOT NULL,
-                    phone VARCHAR(50) DEFAULT '',
-                    hashed_password VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-            """)
-        _initialized = True
-        print("Database connected and tables ready.")
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        name VARCHAR(255) NOT NULL,
+                        email VARCHAR(255) UNIQUE NOT NULL,
+                        phone VARCHAR(50) DEFAULT '',
+                        hashed_password VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                """)
+            _initialized = True
+            print("Database tables ready.")
+        except Exception as e:
+            print(f"ERROR initializing tables: {e}")
+            raise
+
     return pool
 
 
