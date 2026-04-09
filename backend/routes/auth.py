@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from typing import Optional
 
 from auth import (
@@ -24,16 +24,26 @@ class LoginRequest(BaseModel):
 
 @router.post("/register")
 async def register(body: RegisterRequest):
-    user = await register_user(body.name, body.email, body.phone, body.password)
-    token = create_access_token({"sub": str(user["id"])})
-    return {"token": token, "user": _user_public(user)}
+    try:
+        user = await register_user(body.name, body.email, body.phone, body.password)
+        token = create_access_token({"sub": str(user["id"])})
+        return {"token": token, "user": _user_public(user)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Registration error: {e}")
 
 
 @router.post("/login")
 async def login(body: LoginRequest):
-    user = await authenticate_user(body.email, body.password)
-    token = create_access_token({"sub": str(user["id"])})
-    return {"token": token, "user": _user_public(user)}
+    try:
+        user = await authenticate_user(body.email, body.password)
+        token = create_access_token({"sub": str(user["id"])})
+        return {"token": token, "user": _user_public(user)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Login error: {e}")
 
 
 @router.get("/me")
