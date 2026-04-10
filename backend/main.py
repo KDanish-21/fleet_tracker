@@ -8,6 +8,7 @@ from routes.vehicles import router as vehicles_router
 from routes.location import router as location_router
 from routes.reports import router as reports_router
 from routes.auth import router as auth_router
+from routes.health import router as health_router
 
 
 app = FastAPI(
@@ -30,6 +31,7 @@ app.include_router(vehicles_router)
 app.include_router(location_router)
 app.include_router(reports_router)
 app.include_router(auth_router)
+app.include_router(health_router)
 
 
 @app.on_event("startup")
@@ -52,31 +54,6 @@ async def shutdown():
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "GPS51 Fleet Tracker API is running"}
-
-
-@app.get("/health")
-async def health():
-    from database import get_pool
-
-    db_connected = False
-    db_error = None
-    try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            await conn.fetchval("SELECT 1")
-        db_connected = True
-    except Exception as e:
-        db_error = str(e)
-
-    return {
-        "status": "ok",
-        "gpspos_connected": gps51._logged_in,
-        "gpspos_server": gps51.base_url,
-        "db_connected": db_connected,
-        "db_error": db_error,
-    }
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=settings.PORT, reload=True)
