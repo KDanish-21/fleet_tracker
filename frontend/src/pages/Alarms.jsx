@@ -13,7 +13,7 @@ function formatUnixTime(unix) {
 export default function Alarms() {
   const { vehicles } = useFleet()
   const [deviceId, setDeviceId] = useState('')
-  const [startDate, setStart]   = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [startDate, setStart]   = useState(format(new Date(Date.now() - 30 * 86400000), 'yyyy-MM-dd'))
   const [endDate, setEnd]       = useState(format(new Date(), 'yyyy-MM-dd'))
   const [alarms, setAlarms]     = useState([])
   const [loading, setLoading]   = useState(false)

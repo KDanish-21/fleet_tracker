@@ -272,9 +272,10 @@ async def get_alarms(
 
     all_records = []
     for device_id in device_ids:
-        # Use strTEID directly, with alarm_type filter (empty = all alarms)
-        alarm_type = need_alarm if need_alarm else ""
-        data_str = gps51._build_data(device_id, start_ts, end_ts, 10000, alarm_type)
+        # GPSPOS param order: [strTEID, startTime, endTime, alarmType, maxRecords]
+        # alarmType: 0 = all alarms, specific value filters by type
+        alarm_type = int(need_alarm) if need_alarm else 0
+        data_str = gps51._build_data(device_id, start_ts, end_ts, alarm_type, 10000)
         result = await gps51.post("Proc_GetTrackAlarm", data_str)
 
         logger.info(f"Proc_GetTrackAlarm({device_id}) — ok: {result.get('m_isResultOk')}, "

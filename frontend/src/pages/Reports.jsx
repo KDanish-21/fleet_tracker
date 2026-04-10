@@ -11,7 +11,7 @@ export default function Reports() {
   const { vehicles } = useFleet()
   const [tab, setTab]           = useState('Trips')
   const [deviceId, setDeviceId] = useState('')
-  const [startDate, setStart]   = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [startDate, setStart]   = useState(format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd'))
   const [endDate, setEnd]       = useState(format(new Date(), 'yyyy-MM-dd'))
   const [data, setData]         = useState(null)
   const [loading, setLoading]   = useState(false)
