@@ -98,18 +98,32 @@ export default function Reports() {
 
 function TripResults({ data }) {
   const trips = data.totaltrips || []
+
+  if (trips.length === 0) {
+    return (
+      <div className="card text-center py-12">
+        <p className="text-gray-500 font-medium">No trips found for the selected period</p>
+      </div>
+    )
+  }
+
   const chartData = trips.map((t, i) => ({
     name: `Trip ${i + 1}`,
     distance: Math.round((t.tripdistance || 0) / 1000),
     maxSpeed: Math.round(t.maxspeed || 0),
   }))
 
+  const formatTripTime = (ts) => {
+    if (!ts) return '--'
+    try { return format(new Date(ts), 'dd MMM HH:mm') } catch { return '--' }
+  }
+
   return (
     <div className="space-y-4">
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total Trips',    value: trips.length },
+          { label: 'Total Trips',    value: data.total || trips.length },
           { label: 'Total Distance', value: `${Math.round((data.totaldistance || 0) / 1000)} km` },
           { label: 'Max Speed',      value: `${Math.round(data.totalmaxspeed || 0)} km/h` },
           { label: 'Avg Speed',      value: `${Math.round(data.totalaveragespeed || 0)} km/h` },
@@ -151,8 +165,8 @@ function TripResults({ data }) {
             {trips.map((t, i) => (
               <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-4 py-3 text-gray-500">{i + 1}</td>
-                <td className="px-4 py-3">{t.starttime ? format(new Date(t.starttime), 'dd MMM HH:mm') : '--'}</td>
-                <td className="px-4 py-3">{t.endtime   ? format(new Date(t.endtime),   'dd MMM HH:mm') : '--'}</td>
+                <td className="px-4 py-3">{formatTripTime(t.starttime)}</td>
+                <td className="px-4 py-3">{formatTripTime(t.endtime)}</td>
                 <td className="px-4 py-3 font-medium">{Math.round((t.tripdistance || 0) / 1000)} km</td>
                 <td className="px-4 py-3">{Math.round(t.maxspeed || 0)} km/h</td>
                 <td className="px-4 py-3">{Math.round(t.averagespeed || 0)} km/h</td>
@@ -168,6 +182,15 @@ function TripResults({ data }) {
 
 function FuelResults({ data }) {
   const records = data.records || []
+
+  if (records.length === 0) {
+    return (
+      <div className="card text-center py-12">
+        <p className="text-gray-500 font-medium">No fuel data found for the selected period</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {records.map((r, i) => (
@@ -175,8 +198,8 @@ function FuelResults({ data }) {
           <h3 className="font-semibold text-gray-800 mb-3">{r.deviceid}</h3>
           <div className="grid grid-cols-4 gap-4">
             {[
-              { label: 'Avg L/100km',  value: `${r.avgoilper100km ?? '--'} L` },
-              { label: 'Avg L/hr',     value: `${r.avgoilperhour ?? '--'} L` },
+              { label: 'Avg L/100km',  value: r.avgoilper100km != null ? `${r.avgoilper100km} L` : '--' },
+              { label: 'Avg L/hr',     value: r.avgoilperhour != null ? `${r.avgoilperhour} L` : '--' },
               { label: 'Total Fuel',   value: `${((r.currenttotalil || 0) / 100).toFixed(1)} L` },
               { label: 'Idle Fuel',    value: `${((r.totalidleoil || 0) / 100).toFixed(1)} L` },
             ].map(s => (
