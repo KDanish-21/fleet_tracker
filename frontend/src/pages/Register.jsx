@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getTenantSlug } from '../api/client'
 import { Truck, Mail, Lock, Eye, EyeOff, User, Phone, MapPin, Shield, Activity } from 'lucide-react'
 
 export default function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' })
+  const [form, setForm] = useState({
+    tenantSlug: getTenantSlug(),
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirm: '',
+  })
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,7 +32,7 @@ export default function Register() {
     }
     setLoading(true)
     try {
-      await register(form.name, form.email, form.phone || null, form.password)
+      await register(form.name, form.email, form.phone || null, form.password, form.tenantSlug)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed. Please try again.')
@@ -111,6 +119,16 @@ export default function Register() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <InputField
+                label="Workspace"
+                icon={<Shield size={18} />}
+                type="text"
+                required
+                placeholder="company-slug"
+                value={form.tenantSlug}
+                onChange={v => setForm(s => ({ ...s, tenantSlug: v }))}
+              />
+
               <InputField
                 label="Full Name"
                 icon={<User size={18} />}

@@ -8,9 +8,10 @@ class Settings(BaseSettings):
     GPS51_PASSWORD: str  # Plain password (not MD5)
 
     SECRET_KEY: str
+    TENANT_JWT_SECRET: str
     DATABASE_URL: str
-    ALLOWED_ORIGINS: str = "http://localhost:5173"
-    ALLOWED_ORIGIN_REGEX: str = r"https://fleet-tracker-.*\.vercel\.app"
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:8081"
+    ALLOWED_ORIGIN_REGEX: str = r"https://[a-zA-Z0-9-]+\.fleettracker\.app"
 
     PORT: int = 8001
 

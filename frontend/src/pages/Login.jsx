@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getTenantSlug } from '../api/client'
 import { Truck, Mail, Lock, Eye, EyeOff, MapPin, Shield, Activity } from 'lucide-react'
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ tenantSlug: getTenantSlug(), email: '', password: '' })
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,7 +17,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(form.email, form.password)
+      await login(form.email, form.password, form.tenantSlug)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed. Please check your credentials.')
@@ -105,6 +106,15 @@ export default function Login() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              <InputField
+                label="Workspace"
+                icon={<Shield size={18} />}
+                type="text"
+                required
+                placeholder="company-slug"
+                value={form.tenantSlug}
+                onChange={v => setForm(s => ({ ...s, tenantSlug: v }))}
+              />
               <InputField
                 label="Email"
                 icon={<Mail size={18} />}

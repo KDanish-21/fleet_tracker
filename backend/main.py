@@ -11,11 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from gps51.client import gps51
 from database import close_db
+from middleware.tenant import TenantMiddleware
 from routes.vehicles import router as vehicles_router
 from routes.location import router as location_router
 from routes.reports import router as reports_router
 from routes.auth import router as auth_router
 from routes.health import router as health_router
+from routes.tenants import router as tenants_router
 
 
 app = FastAPI(
@@ -23,6 +25,8 @@ app = FastAPI(
     description="FastAPI backend connecting GPS51 to the fleet dashboard",
     version="1.0.0",
 )
+
+app.add_middleware(TenantMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +42,7 @@ app.include_router(vehicles_router)
 app.include_router(location_router)
 app.include_router(reports_router)
 app.include_router(auth_router)
+app.include_router(tenants_router)
 app.include_router(health_router)
 
 

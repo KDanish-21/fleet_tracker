@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import api from '../api/client'
+import api, { setTenantSlug } from '../api/client'
 
 const AuthContext = createContext(null)
 
@@ -28,8 +28,9 @@ export function AuthProvider({ children }) {
     }
   }, [token])
 
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password })
+  const login = async (email, password, tenantSlug) => {
+    setTenantSlug(tenantSlug)
+    const res = await api.post('/auth/login', { email, password, tenant_slug: tenantSlug })
     const { token: t, user: u } = res.data
     localStorage.setItem('token', t)
     localStorage.setItem('user', JSON.stringify(u))
@@ -39,8 +40,16 @@ export function AuthProvider({ children }) {
     return u
   }
 
-  const register = async (name, email, phone, password) => {
-    const res = await api.post('/auth/register', { name, email, phone, password })
+  const register = async (name, email, phone, password, tenantSlug) => {
+    setTenantSlug(tenantSlug)
+    const res = await api.post('/auth/register', {
+      name,
+      email,
+      phone,
+      password,
+      tenant_slug: tenantSlug,
+      tenant_name: tenantSlug,
+    })
     const { token: t, user: u } = res.data
     localStorage.setItem('token', t)
     localStorage.setItem('user', JSON.stringify(u))

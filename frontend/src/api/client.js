@@ -4,10 +4,54 @@ const API_BASE = import.meta.env.PROD
   ? 'https://fleet-tracker-5od4.onrender.com/api'
   : '/api'
 
+const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
+
+export function normalizeTenantSlug(tenantSlug) {
+  return (tenantSlug || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '')
+}
+
+export function getTenantSlug() {
+  if (typeof window === 'undefined') return ''
+
+  const host = window.location.hostname.toLowerCase()
+  if (host && !LOCALHOST_HOSTS.has(host) && !/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    const [subdomain] = host.split('.')
+    if (subdomain && subdomain !== 'www') return subdomain
+  }
+
+  return (
+    normalizeTenantSlug(localStorage.getItem('tenantSlug')) ||
+    import.meta.env.VITE_TENANT_SLUG ||
+    ''
+  )
+}
+
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
 })
+
+api.interceptors.request.use((config) => {
+  const tenantSlug = getTenantSlug()
+  if (tenantSlug) {
+    config.headers = config.headers || {}
+    config.headers['x-tenant-slug'] = tenantSlug
+  }
+  return config
+})
+
+export const setTenantSlug = (tenantSlug) => {
+  if (typeof window === 'undefined') return
+  const normalized = normalizeTenantSlug(tenantSlug)
+  if (normalized) {
+    localStorage.setItem('tenantSlug', normalized)
+  } else {
+    localStorage.removeItem('tenantSlug')
+  }
+}
 
 // ── Vehicles ──────────────────────────────────────────────
 export const getVehicles = () => api.get('/vehicles/')

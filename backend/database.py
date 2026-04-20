@@ -34,14 +34,43 @@ async def get_pool() -> asyncpg.Pool:
         try:
             async with pool.acquire() as conn:
                 await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS tenants (
+                        id UUID PRIMARY KEY,
+                        slug VARCHAR(63) UNIQUE NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                """)
+                await conn.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         id UUID PRIMARY KEY,
+                        tenant_id UUID REFERENCES tenants(id),
+                        role VARCHAR(32) NOT NULL DEFAULT 'user',
                         name VARCHAR(255) NOT NULL,
-                        email VARCHAR(255) UNIQUE NOT NULL,
+                        email VARCHAR(255) NOT NULL,
                         phone VARCHAR(50) DEFAULT '',
                         hashed_password VARCHAR(255) NOT NULL,
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
+                """)
+                await conn.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS users_tenant_email_key
+                        ON users (tenant_id, lower(email));
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS tenant_devices (
+                        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+                        device_id VARCHAR(128) NOT NULL,
+                        device_name VARCHAR(255) DEFAULT '',
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        PRIMARY KEY (tenant_id, device_id)
+                    );
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS tenant_devices_device_id_idx
+                        ON tenant_devices (device_id);
                 """)
             _initialized = True
             print("Database tables ready.")
