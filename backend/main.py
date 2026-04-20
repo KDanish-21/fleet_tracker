@@ -18,6 +18,8 @@ from routes.reports import router as reports_router
 from routes.auth import router as auth_router
 from routes.health import router as health_router
 from routes.tenants import router as tenants_router
+from routes.users import router as users_router
+from routes.superadmin import router as superadmin_router
 
 
 app = FastAPI(
@@ -43,6 +45,8 @@ app.include_router(location_router)
 app.include_router(reports_router)
 app.include_router(auth_router)
 app.include_router(tenants_router)
+app.include_router(users_router)
+app.include_router(superadmin_router)
 app.include_router(health_router)
 
 

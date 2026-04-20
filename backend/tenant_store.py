@@ -23,6 +23,42 @@ async def get_tenant_device_ids(tenant_id: str) -> list[str]:
     return [row["device_id"] for row in rows]
 
 
+async def list_tenant_devices(tenant_id: str) -> list[dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT device_id, device_name, created_at
+            FROM tenant_devices
+            WHERE tenant_id = $1
+            ORDER BY created_at ASC
+            """,
+            _tenant_uuid(tenant_id),
+        )
+    return [
+        {
+            "device_id": row["device_id"],
+            "device_name": row["device_name"] or "",
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        }
+        for row in rows
+    ]
+
+
+async def remove_tenant_device(tenant_id: str, device_id: str) -> bool:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """
+            DELETE FROM tenant_devices
+            WHERE tenant_id = $1 AND device_id = $2
+            """,
+            _tenant_uuid(tenant_id),
+            device_id,
+        )
+    return result.endswith(" 1")
+
+
 async def assign_tenant_device(tenant_id: str, device_id: str, device_name: str = "") -> None:
     pool = await get_pool()
     async with pool.acquire() as conn:

@@ -37,7 +37,7 @@ async def list_vehicles(request: Request, user: dict = Depends(get_current_user)
         vehicles = []
         for group in groups:
             for device in group.get("devices", []):
-                if allowed_ids and device.get("deviceid") not in allowed_ids:
+                if device.get("deviceid") not in allowed_ids:
                     continue
                 device["groupname"] = group.get("groupname", "")
                 device["groupid"] = group.get("groupid", 0)

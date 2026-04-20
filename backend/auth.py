@@ -143,6 +143,30 @@ async def get_current_user(
     return _user_public(dict(user))
 
 
+async def get_current_user_unscoped(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    payload = decode_token(credentials.credentials)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            """
+            SELECT id, tenant_id, role, name, email, phone, created_at
+            FROM users
+            WHERE id = $1
+            """,
+            uuid.UUID(user_id),
+        )
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return _user_public(dict(user))
+
+
 def require_roles(*allowed_roles: str):
     async def dependency(user: dict = Depends(get_current_user)) -> dict:
         if user.get("role") not in allowed_roles:

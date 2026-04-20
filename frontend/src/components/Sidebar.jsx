@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Map, Truck, BarChart2, Bell, Home, ChevronLeft, ChevronRight, User, LogOut } from 'lucide-react'
+import { Map, Truck, BarChart2, Bell, Home, ChevronLeft, ChevronRight, User, LogOut, Settings, Users, Shield } from 'lucide-react'
 import { useFleet } from '../context/FleetContext'
+import { useAuth } from '../context/AuthContext'
 
 const links = [
   { to: '/',          icon: Home,     label: 'Dashboard'  },
@@ -11,20 +12,27 @@ const links = [
   { to: '/alarms',    icon: Bell,     label: 'Alarms'     },
 ]
 
+const adminLinks = [
+  { to: '/admin/devices',  icon: Settings, label: 'Devices'  },
+  { to: '/admin/users',    icon: Users,    label: 'Users'    },
+  { to: '/admin/settings', icon: Settings, label: 'Settings', ownerOnly: true },
+]
+
+const superAdminLinks = [
+  { to: '/superadmin', icon: Shield, label: 'Super Admin' },
+]
+
+const ADMIN_ROLES = new Set(['owner', 'admin'])
+
 export default function Sidebar() {
   const { stats } = useFleet()
+  const { user, token, logout } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
   const navigate = useNavigate()
 
-  const token = localStorage.getItem('token')
-  const user = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}') } catch { return {} }
-  })()
-
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    window.location.href = '/login'
+    logout()
+    navigate('/login')
   }
 
   return (
@@ -86,6 +94,60 @@ export default function Sidebar() {
             )}
           </NavLink>
         ))}
+
+        {ADMIN_ROLES.has(user?.role) && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-white/30">
+                Admin
+              </div>
+            )}
+            {adminLinks.filter(l => !l.ownerOnly || user?.role === 'owner').map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                title={collapsed ? label : undefined}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-brand-600 text-white'
+                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  } ${collapsed ? 'justify-center' : ''}`
+                }
+              >
+                <Icon size={18} />
+                {!collapsed && label}
+              </NavLink>
+            ))}
+          </>
+        )}
+
+        {user?.role === 'superadmin' && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-white/30">
+                Platform
+              </div>
+            )}
+            {superAdminLinks.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                title={collapsed ? label : undefined}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-brand-600 text-white'
+                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  } ${collapsed ? 'justify-center' : ''}`
+                }
+              >
+                <Icon size={18} />
+                {!collapsed && label}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* User section */}

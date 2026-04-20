@@ -32,8 +32,8 @@ export default function Register() {
     }
     setLoading(true)
     try {
-      await register(form.name, form.email, form.phone || null, form.password, form.tenantSlug)
-      navigate('/')
+      const u = await register(form.name, form.email, form.phone || null, form.password, form.tenantSlug)
+      navigate(u?.role === 'owner' ? '/admin/devices?onboard=1' : '/')
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed. Please try again.')
     } finally {

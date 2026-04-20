@@ -46,6 +46,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
         if request.url.path in BYPASS_PATHS:
             return await call_next(request)
 
+        # Superadmin routes bypass tenant resolution entirely
+        if request.url.path.startswith("/api/superadmin"):
+            return await call_next(request)
+
         try:
             slug = _extract_slug(request)
         except HTTPException as exc:

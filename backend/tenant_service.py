@@ -78,6 +78,52 @@ async def create_tenant(slug: str, name: str | None = None, currency: str = "USD
     return dict(row)
 
 
+async def get_tenant_by_id(tenant_id: str) -> Optional[dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, slug, name, currency, is_active, created_at FROM tenants WHERE id = $1",
+            uuid.UUID(str(tenant_id)),
+        )
+    return dict(row) if row else None
+
+
+async def update_tenant(tenant_id: str, name: Optional[str] = None, currency: Optional[str] = None) -> dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE tenants
+            SET name     = COALESCE($2, name),
+                currency = COALESCE($3, currency)
+            WHERE id = $1
+            RETURNING id, slug, name, currency, is_active, created_at
+            """,
+            uuid.UUID(str(tenant_id)),
+            name,
+            currency.upper()[:3] if currency else None,
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return dict(row)
+
+
+async def deactivate_tenant(tenant_id: str) -> dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE tenants SET is_active = FALSE
+            WHERE id = $1
+            RETURNING id, slug, name, currency, is_active, created_at
+            """,
+            uuid.UUID(str(tenant_id)),
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return dict(row)
+
+
 async def get_tenant_user_count(tenant_id: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:

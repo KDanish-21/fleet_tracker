@@ -8,6 +8,10 @@ import Vehicles from './pages/Vehicles'
 import Reports from './pages/Reports'
 import Alarms from './pages/Alarms'
 import Profile from './pages/Profile'
+import TenantDevices from './pages/TenantDevices'
+import TenantUsers from './pages/TenantUsers'
+import TenantSettings from './pages/TenantSettings'
+import SuperAdmin from './pages/SuperAdmin'
 import Login from './pages/Login'
 import Register from './pages/Register'
 
@@ -36,6 +40,10 @@ function AppLayout() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/alarms" element={<Alarms />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/admin/devices" element={<TenantDevices />} />
+            <Route path="/admin/users" element={<TenantUsers />} />
+            <Route path="/admin/settings" element={<TenantSettings />} />
+            <Route path="/superadmin" element={<SuperAdmin />} />
           </Routes>
         </main>
       </div>
@@ -46,7 +54,7 @@ function AppLayout() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
