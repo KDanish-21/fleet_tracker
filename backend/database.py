@@ -46,12 +46,13 @@ async def get_pool() -> asyncpg.Pool:
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         id UUID PRIMARY KEY,
-                        tenant_id UUID REFERENCES tenants(id),
+                        tenant_id UUID NOT NULL REFERENCES tenants(id),
                         role VARCHAR(32) NOT NULL DEFAULT 'user',
                         name VARCHAR(255) NOT NULL,
                         email VARCHAR(255) NOT NULL,
                         phone VARCHAR(50) DEFAULT '',
                         hashed_password VARCHAR(255) NOT NULL,
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
                 """)
