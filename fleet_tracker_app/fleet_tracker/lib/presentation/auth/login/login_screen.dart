@@ -60,7 +60,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     result.fold(
       (failure) => setState(() => _error = failure.message),
-      (_) => context.go(AppConstants.dashboardRoute),
+      (auth) => context.go(
+        auth.user.role == 'superadmin'
+            ? AppConstants.adminRoute
+            : AppConstants.dashboardRoute,
+      ),
     );
   }
 
@@ -80,7 +84,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [AppColors.heroFrom, AppColors.heroVia, AppColors.heroTo],
+                    colors: [
+                      AppColors.heroFrom,
+                      AppColors.heroVia,
+                      AppColors.heroTo
+                    ],
                   ),
                 ),
                 child: Column(
@@ -186,7 +194,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 4),
                         RichText(
                           text: const TextSpan(
-                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.textSecondary),
                             children: [
                               TextSpan(
                                 text: 'Sign in',
@@ -241,16 +250,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _tenantCtrl,
                           textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[a-zA-Z0-9-]')),
+                            TextInputFormatter.withFunction(
+                              (oldValue, newValue) => newValue.copyWith(
+                                text: newValue.text.toLowerCase(),
+                                selection: newValue.selection,
+                              ),
+                            ),
+                          ],
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 14,
                           ),
                           decoration: const InputDecoration(
-                            hintText: 'company-slug',
+                            hintText: 'company-slug or superadmin',
                             prefixIcon: Icon(Icons.business_rounded, size: 18),
                           ),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? 'Workspace is required' : null,
+                          validator: (v) => (v == null || v.trim().length < 3)
+                              ? 'Workspace must be at least 3 characters'
+                              : null,
                         ),
                         const SizedBox(height: 14),
 
@@ -273,8 +295,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             hintText: 'admin@fleet.com',
                             prefixIcon: Icon(Icons.email_outlined, size: 18),
                           ),
-                          validator: (v) =>
-                              (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                          validator: (v) => (v == null || !v.contains('@'))
+                              ? 'Enter a valid email'
+                              : null,
                         ),
                         const SizedBox(height: 14),
 
@@ -294,8 +317,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fontSize: 14,
                           ),
                           decoration: InputDecoration(
-                            hintText: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
-                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                            hintText:
+                                '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded,
+                                size: 18),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscure
@@ -304,11 +329,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 size: 18,
                               ),
                               color: AppColors.textMuted,
-                              onPressed: () => setState(() => _obscure = !_obscure),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
                             ),
                           ),
-                          validator: (v) =>
-                              (v == null || v.length < 6) ? 'Password too short' : null,
+                          validator: (v) => (v == null || v.length < 6)
+                              ? 'Password too short'
+                              : null,
                         ),
                         const SizedBox(height: 24),
 
@@ -320,7 +347,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: _isLoading ? null : _login,
                             style: ElevatedButton.styleFrom(
                               elevation: 4,
-                              shadowColor: AppColors.primary.withValues(alpha: 0.35),
+                              shadowColor:
+                                  AppColors.primary.withValues(alpha: 0.35),
                             ),
                             child: _isLoading
                                 ? const SizedBox(
@@ -351,7 +379,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     color: AppColors.textSecondary,
                                   )),
                               GestureDetector(
-                                onTap: () => context.push(AppConstants.registerRoute),
+                                onTap: () =>
+                                    context.push(AppConstants.registerRoute),
                                 child: const Text('Create account',
                                     style: TextStyle(
                                       fontSize: 13,

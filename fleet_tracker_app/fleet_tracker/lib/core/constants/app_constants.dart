@@ -25,5 +25,6 @@ class AppConstants {
   static const String tripsRoute = '/reports/trips';
   static const String alarmsRoute = '/reports/alarms';
   static const String fuelRoute = '/reports/fuel';
+  static const String adminRoute = '/admin';
   static const String profileRoute = '/profile';
 }

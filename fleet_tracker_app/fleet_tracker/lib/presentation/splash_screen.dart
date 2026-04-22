@@ -27,12 +27,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
     ));
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200));
     _fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.6, curve: Curves.easeOut)),
+      CurvedAnimation(
+          parent: _ctrl, curve: const Interval(0, 0.6, curve: Curves.easeOut)),
     );
     _scale = Tween<double>(begin: 0.8, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.6, curve: Curves.elasticOut)),
+      CurvedAnimation(
+          parent: _ctrl,
+          curve: const Interval(0, 0.6, curve: Curves.elasticOut)),
     );
     _ctrl.forward();
     _navigateAfterSplash();
@@ -44,7 +48,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final isLoggedIn = await ref.read(authRepositoryProvider).isLoggedIn();
     if (!mounted) return;
     if (isLoggedIn) {
-      context.go(AppConstants.dashboardRoute);
+      final user = await ref.read(authRepositoryProvider).getCachedUser();
+      if (!mounted) return;
+      context.go(
+        user?.role == 'superadmin'
+            ? AppConstants.adminRoute
+            : AppConstants.dashboardRoute,
+      );
     } else {
       context.go(AppConstants.loginRoute);
     }

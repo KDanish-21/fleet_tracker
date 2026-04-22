@@ -3,6 +3,10 @@ import 'dart:convert';
 
 class UserModel {
   final String id;
+  final String? tenantId;
+  final String? tenantSlug;
+  final String? tenantName;
+  final String role;
   final String name;
   final String email;
   final String phone;
@@ -10,6 +14,10 @@ class UserModel {
 
   const UserModel({
     required this.id,
+    this.tenantId,
+    this.tenantSlug,
+    this.tenantName,
+    this.role = 'user',
     required this.name,
     required this.email,
     required this.phone,
@@ -18,6 +26,10 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
         id: json['id'] ?? '',
+        tenantId: json['tenant_id'],
+        tenantSlug: json['tenant_slug'],
+        tenantName: json['tenant_name'],
+        role: json['role'] ?? 'user',
         name: json['name'] ?? '',
         email: json['email'] ?? '',
         phone: json['phone'] ?? '',
@@ -26,6 +38,10 @@ class UserModel {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'tenant_id': tenantId,
+        'tenant_slug': tenantSlug,
+        'tenant_name': tenantName,
+        'role': role,
         'name': name,
         'email': email,
         'phone': phone,
@@ -33,23 +49,127 @@ class UserModel {
       };
 
   String toJsonString() => jsonEncode(toJson());
-  factory UserModel.fromJsonString(String s) => UserModel.fromJson(jsonDecode(s));
+  factory UserModel.fromJsonString(String s) =>
+      UserModel.fromJson(jsonDecode(s));
 }
 
+// lib/data/models/tenant_model.dart
+class TenantModel {
+  final String id;
+  final String slug;
+  final String name;
+  final String currency;
+  final bool isActive;
+  final int userCount;
+  final int deviceCount;
+  final String? createdAt;
+
+  const TenantModel({
+    required this.id,
+    required this.slug,
+    required this.name,
+    required this.currency,
+    required this.isActive,
+    this.userCount = 0,
+    this.deviceCount = 0,
+    this.createdAt,
+  });
+
+  factory TenantModel.fromJson(Map<String, dynamic> json) => TenantModel(
+        id: json['id'] ?? '',
+        slug: json['slug'] ?? '',
+        name: json['name'] ?? '',
+        currency: json['currency'] ?? 'USD',
+        isActive: json['is_active'] ?? true,
+        userCount: _toInt(json['user_count']),
+        deviceCount: _toInt(json['device_count']),
+        createdAt: json['created_at'],
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'slug': slug,
+        'name': name,
+        'currency': currency,
+        'is_active': isActive,
+        'user_count': userCount,
+        'device_count': deviceCount,
+        'created_at': createdAt,
+      };
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+}
+
+// lib/data/models/admin_model.dart
+class AdminStats {
+  final int tenants;
+  final int users;
+  final int devices;
+
+  const AdminStats({
+    required this.tenants,
+    required this.users,
+    required this.devices,
+  });
+
+  factory AdminStats.fromJson(Map<String, dynamic> json) => AdminStats(
+        tenants: _toInt(json['tenants']),
+        users: _toInt(json['users']),
+        devices: _toInt(json['devices']),
+      );
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+}
+
+class TenantDeviceModel {
+  final String deviceId;
+  final String deviceName;
+  final String? createdAt;
+
+  const TenantDeviceModel({
+    required this.deviceId,
+    required this.deviceName,
+    this.createdAt,
+  });
+
+  factory TenantDeviceModel.fromJson(Map<String, dynamic> json) =>
+      TenantDeviceModel(
+        deviceId: (json['device_id'] ?? json['deviceid'] ?? '').toString(),
+        deviceName:
+            (json['device_name'] ?? json['devicename'] ?? json['name'] ?? '')
+                .toString(),
+        createdAt: json['created_at']?.toString(),
+      );
+}
 
 // lib/data/models/auth_model.dart
 class AuthResponse {
   final String token;
   final UserModel user;
+  final TenantModel? tenant;
 
-  const AuthResponse({required this.token, required this.user});
+  const AuthResponse({
+    required this.token,
+    required this.user,
+    this.tenant,
+  });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) => AuthResponse(
         token: json['token'] ?? json['access_token'] ?? '',
         user: UserModel.fromJson(json['user'] ?? {}),
+        tenant: json['tenant'] is Map<String, dynamic>
+            ? TenantModel.fromJson(json['tenant'])
+            : null,
       );
 }
-
 
 // lib/data/models/vehicle_model.dart
 class VehicleModel {
@@ -97,7 +217,10 @@ class VehicleModel {
 
   factory VehicleModel.fromJson(Map<String, dynamic> json) => VehicleModel(
         id: (json['deviceid'] ?? json['id'] ?? '').toString(),
-        name: json['devicename'] ?? json['name'] ?? json['vehicle_name'] ?? 'Unknown',
+        name: json['devicename'] ??
+            json['name'] ??
+            json['vehicle_name'] ??
+            'Unknown',
         plateNumber: json['plate_number'] ?? json['plate'],
         type: json['device_model']?.toString() ?? json['type'],
         status: json['status']?.toString(),
@@ -186,7 +309,6 @@ class VehicleModel {
   }
 }
 
-
 // lib/data/models/position_model.dart
 class PositionModel {
   final String? deviceId;
@@ -262,8 +384,7 @@ class PositionModel {
   bool get isMoving => moving ?? (speed ?? 0) > 2;
 
   bool get hasValidLocation =>
-      latitude != null && longitude != null &&
-      latitude != 0 && longitude != 0;
+      latitude != null && longitude != null && latitude != 0 && longitude != 0;
 
   String get timeAgoText {
     if (deviceTime != null) {
@@ -285,7 +406,6 @@ class PositionModel {
     return null;
   }
 }
-
 
 // lib/data/models/trip_model.dart
 class TripRecord {
@@ -344,12 +464,12 @@ class TripsResponse {
     final rawTrips = json['totaltrips'] ?? json['trips'] ?? [];
     return TripsResponse(
       trips: (rawTrips as List).map((t) => TripRecord.fromJson(t)).toList(),
-      totalDistance: (json['totaldistance'] ?? json['total_distance'] ?? 0).toDouble(),
+      totalDistance:
+          (json['totaldistance'] ?? json['total_distance'] ?? 0).toDouble(),
       totalTrips: rawTrips.length,
     );
   }
 }
-
 
 // lib/data/models/alarm_model.dart
 class AlarmRecord {
@@ -390,7 +510,6 @@ class AlarmRecord {
   }
 }
 
-
 // lib/data/models/fuel_model.dart
 class FuelRecord {
   final String? vehicleName;
@@ -414,11 +533,13 @@ class FuelRecord {
   factory FuelRecord.fromJson(Map<String, dynamic> json) => FuelRecord(
         vehicleName: json['devicename'] ?? json['vehicle_name'] ?? json['name'],
         deviceId: (json['deviceid'] ?? json['device_id'] ?? '').toString(),
-        fuelUsed: _toDouble(json['fuel_used'] ?? json['fuel_l'] ?? json['fuel']),
+        fuelUsed:
+            _toDouble(json['fuel_used'] ?? json['fuel_l'] ?? json['fuel']),
         fuelIn: _toDouble(json['fuel_in']),
         fuelOut: _toDouble(json['fuel_out']),
         timestamp: json['timestamp'] ?? json['time'],
-        distance: _toDouble(json['distance'] ?? json['total_distance_km'] ?? json['mileage']),
+        distance: _toDouble(
+            json['distance'] ?? json['total_distance_km'] ?? json['mileage']),
       );
 
   static double? _toDouble(dynamic v) {

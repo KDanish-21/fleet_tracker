@@ -98,6 +98,22 @@ async def authenticate_user(email: str, password: str, tenant_id: str) -> dict:
     return dict(user)
 
 
+async def authenticate_superadmin(email: str, password: str) -> dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            """
+            SELECT id, tenant_id, role, name, email, phone, hashed_password, created_at
+            FROM users
+            WHERE LOWER(email) = LOWER($1) AND role = 'superadmin'
+            """,
+            email,
+        )
+    if not user or not verify_password(password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    return dict(user)
+
+
 def _user_public(user: dict) -> dict:
     return {
         "id": str(user["id"]),

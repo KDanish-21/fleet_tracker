@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from auth import (
-    register_user, authenticate_user, create_access_token,
+    register_user, authenticate_user, authenticate_superadmin, create_access_token,
     get_current_user, _user_public,
 )
 from tenant_context import get_tenant_id, require_tenant_id
@@ -104,6 +104,14 @@ async def login(body: LoginRequest, request: Request):
             slug = _request_tenant_slug(request, body.tenant_slug)
             tenant = await get_tenant_by_slug(slug, include_inactive=True)
             if not tenant:
+                if slug in {"superadmin", "global", ""}:
+                    user = await authenticate_superadmin(body.email, body.password)
+                    token = create_access_token(
+                        {"sub": str(user["id"])},
+                        tenant_id=None,
+                        role=user["role"],
+                    )
+                    return {"token": token, "user": _user_public(user), "tenant": None}
                 raise HTTPException(status_code=404, detail="Unknown tenant")
             if not tenant["is_active"]:
                 raise HTTPException(status_code=403, detail="Tenant is inactive")

@@ -24,8 +24,8 @@ class AuthRepository {
     String? tenantSlug,
   }) async {
     try {
-      await _saveTenantSlugIfPresent(tenantSlug);
       final normalizedTenantSlug = _normalizeTenantSlug(tenantSlug);
+      await _saveTenantSlugIfPresent(normalizedTenantSlug);
       final response = await _dio.post('/auth/login', data: {
         'tenant_slug': normalizedTenantSlug,
         'email': email,
@@ -34,6 +34,7 @@ class AuthRepository {
       final auth = AuthResponse.fromJson(response.data);
       await _storage.saveToken(auth.token);
       await _storage.saveUser(auth.user.toJsonString());
+      await _saveTenantSlugIfPresent(auth.tenant?.slug ?? normalizedTenantSlug);
       return Right(auth);
     } on DioException catch (e) {
       return Left(dioErrorToFailure(e));
@@ -48,8 +49,8 @@ class AuthRepository {
     String? tenantSlug,
   }) async {
     try {
-      await _saveTenantSlugIfPresent(tenantSlug);
       final normalizedTenantSlug = _normalizeTenantSlug(tenantSlug);
+      await _saveTenantSlugIfPresent(normalizedTenantSlug);
       final response = await _dio.post('/auth/register', data: {
         'tenant_slug': normalizedTenantSlug,
         'tenant_name': normalizedTenantSlug,
@@ -61,6 +62,7 @@ class AuthRepository {
       final auth = AuthResponse.fromJson(response.data);
       await _storage.saveToken(auth.token);
       await _storage.saveUser(auth.user.toJsonString());
+      await _saveTenantSlugIfPresent(auth.tenant?.slug ?? normalizedTenantSlug);
       return Right(auth);
     } on DioException catch (e) {
       return Left(dioErrorToFailure(e));

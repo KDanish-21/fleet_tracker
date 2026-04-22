@@ -1,5 +1,6 @@
 // lib/presentation/auth/register/register_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_tracker/core/constants/app_constants.dart';
@@ -125,13 +126,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _tenantCtrl,
                   style: const TextStyle(color: AppColors.textPrimary),
                   textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9-]')),
+                    TextInputFormatter.withFunction(
+                      (oldValue, newValue) => newValue.copyWith(
+                        text: newValue.text.toLowerCase(),
+                        selection: newValue.selection,
+                      ),
+                    ),
+                  ],
                   decoration: const InputDecoration(
                     labelText: 'Workspace',
                     prefixIcon: Icon(Icons.business_rounded),
                     hintText: 'company-slug',
                   ),
                   validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Workspace is required' : null,
+                      (v == null || v.trim().length < 3)
+                          ? 'Workspace must be at least 3 characters'
+                          : null,
                 ),
                 const SizedBox(height: 16),
 

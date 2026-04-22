@@ -96,6 +96,8 @@ class ProfileScreen extends ConsumerWidget {
                       children: [
                         InfoRow(icon: Icons.person_outline_rounded, label: 'Name', value: user?.name ?? '-'),
                         const Divider(height: 1),
+                        InfoRow(icon: Icons.verified_user_outlined, label: 'Role', value: user?.role ?? '-'),
+                        const Divider(height: 1),
                         InfoRow(icon: Icons.email_outlined, label: 'Email', value: user?.email ?? '-'),
                         const Divider(height: 1),
                         InfoRow(icon: Icons.phone_outlined, label: 'Phone', value: user?.phone ?? '-'),

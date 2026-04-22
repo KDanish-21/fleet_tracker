@@ -11,6 +11,7 @@ import 'package:fleet_tracker/presentation/map/map_screen.dart';
 import 'package:fleet_tracker/presentation/reports/trips/trips_screen.dart';
 import 'package:fleet_tracker/presentation/reports/alarms/alarms_screen.dart';
 import 'package:fleet_tracker/presentation/reports/fuel/fuel_screen.dart';
+import 'package:fleet_tracker/presentation/admin/admin_screen.dart';
 import 'package:fleet_tracker/presentation/profile/profile_screen.dart';
 import 'package:fleet_tracker/presentation/splash_screen.dart';
 import 'package:fleet_tracker/presentation/shell_screen.dart';
@@ -77,6 +78,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppConstants.fuelRoute,
             builder: (_, __) => const FuelScreen(),
+          ),
+          GoRoute(
+            path: AppConstants.adminRoute,
+            builder: (_, __) => const AdminScreen(),
           ),
           GoRoute(
             path: AppConstants.profileRoute,

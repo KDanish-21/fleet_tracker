@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
 export "FLUTTER_ROOT=C:\Users\Public\Flutter\flutter"
-export "FLUTTER_APPLICATION_PATH=E:\A project\ADRS all\erp\fleet_tracker_app\fleet_tracker"
+export "FLUTTER_APPLICATION_PATH=E:\A project\ADRS all\erp\gps51-fleet\fleet_tracker_app\fleet_tracker"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"
