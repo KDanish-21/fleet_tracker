@@ -8,6 +8,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from fastapi import HTTPException
+from starlette.requests import Request
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -20,6 +21,7 @@ os.environ.setdefault("TENANT_JWT_SECRET", "tenant-test-secret")
 os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost:5432/test")
 
 import auth
+from middleware.tenant import TenantMiddleware
 from routes import reports, users, vehicles
 
 
@@ -168,3 +170,47 @@ class TenantIsolationTests(IsolatedAsyncioTestCase):
 
         self.assertEqual(user["role"], "superadmin")
         self.assertIsNone(user["tenant_id"])
+
+    async def test_tenant_middleware_falls_back_to_token_tenant_id(self):
+        class Conn:
+            async def fetchrow(self, sql, *args):
+                self.assertion_target.assertIn("FROM public.tenants", sql)
+                self.assertion_target.assertEqual(args, (TENANT_ID,))
+                return {
+                    "id": uuid.UUID(TENANT_ID),
+                    "slug": "bgccl",
+                    "is_active": True,
+                }
+
+        conn = Conn()
+        conn.assertion_target = self
+
+        middleware = TenantMiddleware(app=lambda scope, receive, send: None)
+
+        async def call_next(request):
+            self.assertEqual(request.state.tenant_id, TENANT_ID)
+            self.assertEqual(request.state.tenant_slug, "bgccl")
+            return SimpleNamespace(status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/users/",
+            "headers": [(b"authorization", b"Bearer test-token")],
+            "query_string": b"",
+            "client": ("testclient", 12345),
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "root_path": "",
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        with (
+            patch("middleware.tenant.jwt.decode", return_value={"tid": TENANT_ID}),
+            patch("middleware.tenant.get_pool", AsyncMock(return_value=_Pool(conn))),
+        ):
+            response = await middleware.dispatch(Request(scope, receive), call_next)
+
+        self.assertEqual(response.status_code, 200)

@@ -56,6 +56,32 @@ class TenantMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
         if not slug:
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.lower().startswith("bearer "):
+                token = auth_header.split(" ", 1)[1].strip()
+                try:
+                    payload = jwt.decode(
+                        token, settings.TENANT_JWT_SECRET, algorithms=[ALGORITHM]
+                    )
+                    tid = payload.get("tid")
+                    if tid:
+                        pool = await get_pool()
+                        async with pool.acquire() as conn:
+                            tenant = await conn.fetchrow(
+                                "SELECT id, slug, is_active FROM public.tenants WHERE id = $1",
+                                tid,
+                            )
+                        if tenant is None:
+                            return JSONResponse({"detail": "Unknown tenant"}, status_code=404)
+                        if not tenant["is_active"]:
+                            return JSONResponse({"detail": "Tenant is inactive"}, status_code=403)
+                        request.state.tenant_id = str(tenant["id"])
+                        request.state.tenant_slug = tenant["slug"]
+                        return await call_next(request)
+                except JWTError:
+                    pass
+
+        if not slug:
             return await call_next(request)
 
         pool = await get_pool()
