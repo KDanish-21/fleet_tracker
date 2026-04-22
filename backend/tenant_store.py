@@ -1,6 +1,8 @@
 from typing import Iterable
 from uuid import UUID
 
+from fastapi import HTTPException
+
 from database import get_pool
 
 
@@ -62,6 +64,25 @@ async def remove_tenant_device(tenant_id: str, device_id: str) -> bool:
 async def assign_tenant_device(tenant_id: str, device_id: str, device_name: str = "") -> None:
     pool = await get_pool()
     async with pool.acquire() as conn:
+        already_assigned = await conn.fetchval(
+            "SELECT 1 FROM tenant_devices WHERE tenant_id = $1 AND device_id = $2",
+            _tenant_uuid(tenant_id),
+            device_id,
+        )
+        if not already_assigned:
+            max_devices = await conn.fetchval(
+                "SELECT max_devices FROM tenants WHERE id = $1",
+                _tenant_uuid(tenant_id),
+            )
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM tenant_devices WHERE tenant_id = $1",
+                _tenant_uuid(tenant_id),
+            )
+            if max_devices is not None and count >= max_devices:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Device limit reached (max {max_devices} trucks per company)",
+                )
         await conn.execute(
             """
             INSERT INTO tenant_devices (tenant_id, device_id, device_name)

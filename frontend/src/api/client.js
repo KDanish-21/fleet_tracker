@@ -139,5 +139,11 @@ export const deleteSuperAdminTenantUser = (tenantId, userId) =>
   api.delete(`/superadmin/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`)
 export const getSuperAdminTenantDevices = (tenantId) =>
   api.get(`/superadmin/tenants/${encodeURIComponent(tenantId)}/devices`)
+export const getAllGPS51Devices = () =>
+  api.get('/superadmin/devices/all')
+export const assignDeviceToTenant = (tenantId, deviceId, deviceName = '') =>
+  api.post(`/superadmin/tenants/${encodeURIComponent(tenantId)}/devices`, { device_id: deviceId, device_name: deviceName })
+export const removeDeviceFromTenant = (tenantId, deviceId) =>
+  api.delete(`/superadmin/tenants/${encodeURIComponent(tenantId)}/devices/${encodeURIComponent(deviceId)}`)
 
 export default api

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Building2, RefreshCw, Plus, Trash2, Save, Users, HardDrive, Shield } from 'lucide-react'
+import { Building2, RefreshCw, Plus, Trash2, Save, Users, HardDrive, Shield, Truck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import {
   getSuperAdminStats,
@@ -14,6 +14,9 @@ import {
   updateSuperAdminTenantUserRole,
   deleteSuperAdminTenantUser,
   getSuperAdminTenantDevices,
+  getAllGPS51Devices,
+  assignDeviceToTenant,
+  removeDeviceFromTenant,
 } from '../api/client'
 
 const emptyTenant = { slug: '', name: '', currency: 'USD' }
@@ -25,6 +28,7 @@ export default function SuperAdmin() {
   const [stats, setStats] = useState({ tenants: 0, users: 0, devices: 0 })
   const [tenants, setTenants] = useState([])
   const [allUsers, setAllUsers] = useState([])
+  const [allDevices, setAllDevices] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [tenantUsers, setTenantUsers] = useState([])
   const [tenantDevices, setTenantDevices] = useState([])
@@ -33,6 +37,7 @@ export default function SuperAdmin() {
   const [userForm, setUserForm] = useState(emptyUser)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [trucksSaving, setTrucksSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -62,6 +67,49 @@ export default function SuperAdmin() {
     }
   }
 
+  const loadAllDevices = async () => {
+    try {
+      const res = await getAllGPS51Devices()
+      setAllDevices(res.data.devices || [])
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to load GPS51 trucks')
+    }
+  }
+
+  const assignTruck = async (device, newTenantId) => {
+    if (!newTenantId) return
+    setTrucksSaving(true)
+    setError('')
+    try {
+      if (device.assignment && device.assignment.tenant_id !== newTenantId) {
+        await removeDeviceFromTenant(device.assignment.tenant_id, device.device_id)
+      }
+      await assignDeviceToTenant(newTenantId, device.device_id, device.device_name)
+      showMessage(`Truck ${device.device_name} assigned successfully.`)
+      await Promise.all([loadAllDevices(), loadOverview()])
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to assign truck')
+    } finally {
+      setTrucksSaving(false)
+    }
+  }
+
+  const unassignTruck = async (device) => {
+    if (!device.assignment) return
+    if (!window.confirm(`Remove "${device.device_name}" from ${device.assignment.tenant_name}?`)) return
+    setTrucksSaving(true)
+    setError('')
+    try {
+      await removeDeviceFromTenant(device.assignment.tenant_id, device.device_id)
+      showMessage(`Truck ${device.device_name} unassigned.`)
+      await Promise.all([loadAllDevices(), loadOverview()])
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to unassign truck')
+    } finally {
+      setTrucksSaving(false)
+    }
+  }
+
   const loadTenantDetails = async (tenantId) => {
     if (!tenantId) {
       setTenantUsers([])
@@ -82,7 +130,10 @@ export default function SuperAdmin() {
   }
 
   useEffect(() => {
-    if (user?.role === 'superadmin') loadOverview()
+    if (user?.role === 'superadmin') {
+      loadOverview()
+      loadAllDevices()
+    }
   }, [user?.role])
 
   useEffect(() => {
@@ -362,6 +413,29 @@ export default function SuperAdmin() {
       </div>
 
       <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Truck size={18} className="text-brand-600" />
+            <h2 className="font-semibold text-gray-900">All GPS51 Trucks</h2>
+            <span className="text-xs text-gray-400">— assign trucks to companies (max 4 per company)</span>
+          </div>
+          <button
+            onClick={loadAllDevices}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-200 rounded hover:bg-gray-50"
+          >
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+        <AllTrucksTable
+          devices={allDevices}
+          tenants={tenants}
+          onAssign={assignTruck}
+          onUnassign={unassignTruck}
+          saving={trucksSaving}
+        />
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">All Company Users</div>
         <UsersTable users={allUsers} showTenant />
       </section>
@@ -481,6 +555,99 @@ function DevicesTable({ devices }) {
               <td className="px-4 py-3 text-gray-500">{device.created_at ? new Date(device.created_at).toLocaleString() : '-'}</td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function AllTrucksTable({ devices, tenants, onAssign, onUnassign, saving }) {
+  const [pending, setPending] = useState({})
+
+  const tenantDeviceCounts = useMemo(() => {
+    const counts = {}
+    devices.forEach(d => {
+      if (d.assignment) {
+        counts[d.assignment.tenant_id] = (counts[d.assignment.tenant_id] || 0) + 1
+      }
+    })
+    return counts
+  }, [devices])
+
+  if (devices.length === 0) {
+    return <div className="px-4 py-8 text-center text-sm text-gray-400">No trucks found in GPS51 account.</div>
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 text-gray-600">
+          <tr>
+            <th className="text-left px-4 py-3 font-semibold">Device ID</th>
+            <th className="text-left px-4 py-3 font-semibold">Name</th>
+            <th className="text-left px-4 py-3 font-semibold">Assigned To</th>
+            <th className="text-left px-4 py-3 font-semibold">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {devices.map(device => {
+            const assignedTenant = device.assignment
+              ? tenants.find(t => t.id === device.assignment.tenant_id)
+              : null
+            const usedCount = assignedTenant ? tenantDeviceCounts[assignedTenant.id] || 0 : 0
+            const maxCount = assignedTenant?.max_devices ?? 4
+            const selectedTenantId = pending[device.device_id] ?? device.assignment?.tenant_id ?? ''
+
+            return (
+              <tr key={device.device_id} className="border-t border-gray-100">
+                <td className="px-4 py-3 font-mono text-gray-700">{device.device_id}</td>
+                <td className="px-4 py-3 text-gray-800 font-medium">{device.device_name || '-'}</td>
+                <td className="px-4 py-3">
+                  {device.assignment ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-gray-800">{device.assignment.tenant_name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${usedCount >= maxCount ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {usedCount}/{maxCount}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">Unassigned</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedTenantId}
+                      onChange={e => setPending(prev => ({ ...prev, [device.device_id]: e.target.value }))}
+                      disabled={saving}
+                      className="text-xs px-2 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    >
+                      <option value="">— select company —</option>
+                      {tenants.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => onAssign(device, selectedTenantId)}
+                      disabled={saving || !selectedTenantId || selectedTenantId === device.assignment?.tenant_id}
+                      className="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-40"
+                    >
+                      Assign
+                    </button>
+                    {device.assignment && (
+                      <button
+                        onClick={() => onUnassign(device)}
+                        disabled={saving}
+                        className="text-xs px-2 py-1 text-red-600 hover:text-red-700 disabled:opacity-40"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

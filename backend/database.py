@@ -40,8 +40,13 @@ async def get_pool() -> asyncpg.Pool:
                         name VARCHAR(255) NOT NULL,
                         currency VARCHAR(3) NOT NULL DEFAULT 'USD',
                         is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        max_devices INT NOT NULL DEFAULT 4,
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
+                """)
+                await conn.execute("""
+                    ALTER TABLE tenants
+                    ADD COLUMN IF NOT EXISTS max_devices INT NOT NULL DEFAULT 4;
                 """)
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS users (

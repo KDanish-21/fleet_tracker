@@ -31,6 +31,7 @@ def tenant_public(tenant: dict | None) -> dict | None:
         "name": tenant["name"],
         "currency": tenant.get("currency", "USD"),
         "is_active": tenant.get("is_active", True),
+        "max_devices": tenant.get("max_devices", 4),
         "created_at": str(tenant.get("created_at", "")),
     }
 

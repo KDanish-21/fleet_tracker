@@ -10,8 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import get_current_user_unscoped, hash_password, _user_public
+from config import settings
 from database import get_pool
+from gps51.vehicles import get_vehicle_list
 from tenant_service import normalize_tenant_slug
+from tenant_store import assign_tenant_device as _store_assign_device
 
 router = APIRouter(prefix="/api/superadmin", tags=["superadmin"])
 
@@ -39,12 +42,14 @@ class CreateTenantRequest(BaseModel):
     slug: str = Field(..., min_length=3, max_length=63)
     name: str = Field(..., min_length=1)
     currency: str = Field("USD", min_length=3, max_length=3)
+    max_devices: int = Field(4, ge=1, le=100)
 
 
 class UpdateTenantRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     currency: Optional[str] = Field(None, min_length=3, max_length=3)
     is_active: Optional[bool] = None
+    max_devices: Optional[int] = Field(None, ge=1, le=100)
 
 
 class CreateUserRequest(BaseModel):
@@ -110,8 +115,8 @@ async def create_tenant(body: CreateTenantRequest, _: dict = Depends(require_sup
         if existing:
             raise HTTPException(status_code=409, detail="Slug already exists")
         row = await conn.fetchrow(
-            "INSERT INTO tenants (id, slug, name, currency) VALUES ($1,$2,$3,$4) RETURNING *",
-            uuid.uuid4(), slug, body.name.strip(), body.currency.upper()[:3],
+            "INSERT INTO tenants (id, slug, name, currency, max_devices) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+            uuid.uuid4(), slug, body.name.strip(), body.currency.upper()[:3], body.max_devices,
         )
     return _fmt_tenant(row)
 
@@ -127,16 +132,18 @@ async def update_tenant(
         row = await conn.fetchrow(
             """
             UPDATE tenants
-            SET name      = COALESCE($2, name),
-                currency  = COALESCE($3, currency),
-                is_active = COALESCE($4, is_active)
+            SET name        = COALESCE($2, name),
+                currency    = COALESCE($3, currency),
+                is_active   = COALESCE($4, is_active),
+                max_devices = COALESCE($5, max_devices)
             WHERE id = $1
-            RETURNING id, slug, name, currency, is_active, created_at
+            RETURNING *
             """,
             _uuid(tenant_id),
             body.name,
             body.currency.upper()[:3] if body.currency else None,
             body.is_active,
+            body.max_devices,
         )
     if not row:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -265,6 +272,50 @@ async def delete_tenant_user(
 
 # ── Devices (cross-tenant) ────────────────────────────────
 
+@router.get("/devices/all")
+async def list_all_gps51_devices(_: dict = Depends(require_superadmin)):
+    """Return all GPS51 trucks with their current tenant assignment (or unassigned)."""
+    try:
+        data = await get_vehicle_list(settings.GPS51_USERNAME)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"GPS51 error: {e}")
+
+    if data.get("status") != 0:
+        raise HTTPException(status_code=502, detail=data.get("cause", "Failed to fetch vehicles"))
+
+    flat_devices = [
+        d for group in data.get("groups", []) for d in group.get("devices", [])
+    ]
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT td.device_id, td.tenant_id, t.slug, t.name
+            FROM tenant_devices td
+            JOIN tenants t ON t.id = td.tenant_id
+            """
+        )
+    assignment_map = {
+        r["device_id"]: {
+            "tenant_id": str(r["tenant_id"]),
+            "tenant_slug": r["slug"],
+            "tenant_name": r["name"],
+        }
+        for r in rows
+    }
+
+    result = [
+        {
+            "device_id": d["deviceid"],
+            "device_name": d.get("devicename", d["deviceid"]),
+            "assignment": assignment_map.get(d["deviceid"]),
+        }
+        for d in flat_devices
+    ]
+    return {"total": len(result), "devices": result}
+
+
 @router.get("/tenants/{tenant_id}/devices")
 async def list_tenant_devices(tenant_id: str, _: dict = Depends(require_superadmin)):
     pool = await get_pool()
@@ -290,16 +341,7 @@ async def list_tenant_devices(tenant_id: str, _: dict = Depends(require_superadm
 async def assign_tenant_device(
     tenant_id: str, body: AssignDeviceRequest, _: dict = Depends(require_superadmin)
 ):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO tenant_devices (tenant_id, device_id, device_name)
-            VALUES ($1,$2,$3)
-            ON CONFLICT (tenant_id, device_id) DO UPDATE SET device_name=EXCLUDED.device_name
-            """,
-            _uuid(tenant_id), body.device_id.strip(), body.device_name.strip(),
-        )
+    await _store_assign_device(tenant_id, body.device_id.strip(), body.device_name.strip())
     return {"status": 0, "message": "Device assigned"}
 
 
@@ -328,6 +370,7 @@ def _fmt_tenant(row) -> dict:
         "name":         d["name"],
         "currency":     d.get("currency", "USD"),
         "is_active":    d.get("is_active", True),
+        "max_devices":  d.get("max_devices", 4),
         "created_at":   str(d.get("created_at", "")),
         "user_count":   d.get("user_count", 0),
         "device_count": d.get("device_count", 0),
