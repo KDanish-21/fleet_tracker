@@ -19,7 +19,7 @@ import {
   removeDeviceFromTenant,
 } from '../api/client'
 
-const emptyTenant = { slug: '', name: '', currency: 'USD' }
+const emptyTenant = { slug: '', name: '', currency: 'USD', max_devices: 4 }
 const emptyUser = { name: '', email: '', phone: '', password: '', role: 'user' }
 const emptyDevice = { device_id: '', device_name: '' }
 const roles = ['user', 'admin', 'owner']
@@ -34,7 +34,7 @@ export default function SuperAdmin() {
   const [tenantUsers, setTenantUsers] = useState([])
   const [tenantDevices, setTenantDevices] = useState([])
   const [tenantForm, setTenantForm] = useState(emptyTenant)
-  const [editForm, setEditForm] = useState({ name: '', currency: 'USD', is_active: true })
+  const [editForm, setEditForm] = useState({ name: '', currency: 'USD', is_active: true, max_devices: 4 })
   const [userForm, setUserForm] = useState(emptyUser)
   const [deviceForm, setDeviceForm] = useState(emptyDevice)
   const [loading, setLoading] = useState(true)
@@ -177,6 +177,7 @@ export default function SuperAdmin() {
         name: selectedTenant.name || '',
         currency: selectedTenant.currency || 'USD',
         is_active: !!selectedTenant.is_active,
+        max_devices: selectedTenant.max_devices ?? 4,
       })
       loadTenantDetails(selectedTenant.id)
     }
@@ -199,6 +200,7 @@ export default function SuperAdmin() {
         slug: tenantForm.slug.trim(),
         name: tenantForm.name.trim(),
         currency: tenantForm.currency.trim().toUpperCase(),
+        max_devices: Number(tenantForm.max_devices) || 4,
       })
       setTenantForm(emptyTenant)
       showMessage('Tenant created.')
@@ -220,6 +222,7 @@ export default function SuperAdmin() {
         name: editForm.name.trim(),
         currency: editForm.currency.trim().toUpperCase(),
         is_active: editForm.is_active,
+        max_devices: Number(editForm.max_devices) || 4,
       })
       showMessage('Tenant updated.')
       await loadOverview()
@@ -321,10 +324,11 @@ export default function SuperAdmin() {
           <Plus size={18} className="text-brand-600" />
           <h2 className="font-semibold text-gray-900">Add Tenant</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_auto] gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_100px_90px_auto] gap-3">
           <Input label="Slug" value={tenantForm.slug} onChange={v => setTenantForm(f => ({ ...f, slug: v }))} placeholder="company-slug" required />
           <Input label="Name" value={tenantForm.name} onChange={v => setTenantForm(f => ({ ...f, name: v }))} placeholder="Company Name" required />
           <Input label="Currency" value={tenantForm.currency} onChange={v => setTenantForm(f => ({ ...f, currency: v }))} maxLength={3} required />
+          <Input label="Max Trucks" type="number" value={tenantForm.max_devices} onChange={v => setTenantForm(f => ({ ...f, max_devices: v }))} min={1} max={100} required />
           <div className="flex items-end">
             <button disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50">
               <Plus size={16} /> Add
@@ -368,10 +372,11 @@ export default function SuperAdmin() {
             <>
               <section className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_130px] gap-3 flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_90px_120px] gap-3 flex-1">
                     <Input label="Tenant Name" value={editForm.name} onChange={v => setEditForm(f => ({ ...f, name: v }))} />
                     <Input label="Currency" value={editForm.currency} onChange={v => setEditForm(f => ({ ...f, currency: v }))} maxLength={3} />
-                    <label className="flex items-center gap-2 text-sm text-gray-700 pb-2">
+                    <Input label="Max Trucks" type="number" value={editForm.max_devices} onChange={v => setEditForm(f => ({ ...f, max_devices: v }))} min={1} max={100} />
+                    <label className="flex items-center gap-2 text-sm text-gray-700 pb-2 pt-5">
                       <input
                         type="checkbox"
                         checked={editForm.is_active}
