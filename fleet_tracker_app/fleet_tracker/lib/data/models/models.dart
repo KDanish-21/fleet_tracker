@@ -62,6 +62,7 @@ class TenantModel {
   final bool isActive;
   final int userCount;
   final int deviceCount;
+  final int maxDevices;
   final String? createdAt;
 
   const TenantModel({
@@ -72,6 +73,7 @@ class TenantModel {
     required this.isActive,
     this.userCount = 0,
     this.deviceCount = 0,
+    this.maxDevices = 4,
     this.createdAt,
   });
 
@@ -83,6 +85,7 @@ class TenantModel {
         isActive: json['is_active'] ?? true,
         userCount: _toInt(json['user_count']),
         deviceCount: _toInt(json['device_count']),
+        maxDevices: _toInt(json['max_devices'] ?? 4),
         createdAt: json['created_at'],
       );
 
@@ -94,6 +97,7 @@ class TenantModel {
         'is_active': isActive,
         'user_count': userCount,
         'device_count': deviceCount,
+        'max_devices': maxDevices,
         'created_at': createdAt,
       };
 

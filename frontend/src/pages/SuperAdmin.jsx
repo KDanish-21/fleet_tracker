@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Building2, RefreshCw, Plus, Trash2, Save, Users, HardDrive, Shield, Truck } from 'lucide-react'
+import { Building2, RefreshCw, Plus, Trash2, Save, Users, HardDrive, Shield, Truck, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import {
   getSuperAdminStats,
@@ -21,6 +21,7 @@ import {
 
 const emptyTenant = { slug: '', name: '', currency: 'USD' }
 const emptyUser = { name: '', email: '', phone: '', password: '', role: 'user' }
+const emptyDevice = { device_id: '', device_name: '' }
 const roles = ['user', 'admin', 'owner']
 
 export default function SuperAdmin() {
@@ -35,6 +36,7 @@ export default function SuperAdmin() {
   const [tenantForm, setTenantForm] = useState(emptyTenant)
   const [editForm, setEditForm] = useState({ name: '', currency: 'USD', is_active: true })
   const [userForm, setUserForm] = useState(emptyUser)
+  const [deviceForm, setDeviceForm] = useState(emptyDevice)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [trucksSaving, setTrucksSaving] = useState(false)
@@ -107,6 +109,39 @@ export default function SuperAdmin() {
       setError(err?.response?.data?.detail || err.message || 'Failed to unassign truck')
     } finally {
       setTrucksSaving(false)
+    }
+  }
+
+  const addDeviceManually = async (e) => {
+    e.preventDefault()
+    if (!selectedTenant) return
+    const id = deviceForm.device_id.trim()
+    const name = deviceForm.device_name.trim()
+    if (!id) return
+    setSaving(true)
+    setError('')
+    try {
+      await assignDeviceToTenant(selectedTenant.id, id, name)
+      setDeviceForm(emptyDevice)
+      showMessage(`Device ${id} assigned to ${selectedTenant.name}.`)
+      await Promise.all([loadTenantDetails(selectedTenant.id), loadOverview(), loadAllDevices()])
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to assign device')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const removeDeviceFromTenantDetail = async (device) => {
+    if (!selectedTenant) return
+    if (!window.confirm(`Remove device "${device.device_id}" from ${selectedTenant.name}?`)) return
+    setError('')
+    try {
+      await removeDeviceFromTenant(selectedTenant.id, device.device_id)
+      showMessage(`Device ${device.device_id} removed.`)
+      await Promise.all([loadTenantDetails(selectedTenant.id), loadOverview(), loadAllDevices()])
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to remove device')
     }
   }
 
@@ -401,9 +436,35 @@ export default function SuperAdmin() {
                 <UsersTable users={tenantUsers} onRoleChange={changeRole} onRemove={removeUser} showTenant={false} />
               </section>
 
-              <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">Tenant Devices</div>
-                <DevicesTable devices={tenantDevices} />
+              <section className="bg-white border border-gray-200 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Truck size={18} className="text-brand-600" />
+                  <h2 className="font-semibold text-gray-900">Assign Truck to {selectedTenant.name}</h2>
+                </div>
+                <form onSubmit={addDeviceManually} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 mb-4">
+                  <Input
+                    label="Device ID"
+                    value={deviceForm.device_id}
+                    onChange={v => setDeviceForm(f => ({ ...f, device_id: v }))}
+                    placeholder="e.g. TE001234"
+                    required
+                  />
+                  <Input
+                    label="Truck Name (optional)"
+                    value={deviceForm.device_name}
+                    onChange={v => setDeviceForm(f => ({ ...f, device_name: v }))}
+                    placeholder="e.g. Truck-01"
+                  />
+                  <div className="flex items-end">
+                    <button
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      <Plus size={16} /> Assign
+                    </button>
+                  </div>
+                </form>
+                <DevicesTable devices={tenantDevices} onRemove={removeDeviceFromTenantDetail} />
               </section>
             </>
           ) : (
@@ -414,10 +475,16 @@ export default function SuperAdmin() {
 
       <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Truck size={18} className="text-brand-600" />
             <h2 className="font-semibold text-gray-900">All GPS51 Trucks</h2>
             <span className="text-xs text-gray-400">— assign trucks to companies (max 4 per company)</span>
+            {allDevices.filter(d => d.orphaned).length > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">
+                <AlertTriangle size={12} />
+                {allDevices.filter(d => d.orphaned).length} phantom device{allDevices.filter(d => d.orphaned).length > 1 ? 's' : ''} — click 🗑 to remove
+              </span>
+            )}
           </div>
           <button
             onClick={loadAllDevices}
@@ -532,7 +599,7 @@ function UsersTable({ users, onRoleChange, onRemove, showTenant }) {
   )
 }
 
-function DevicesTable({ devices }) {
+function DevicesTable({ devices, onRemove }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -541,18 +608,26 @@ function DevicesTable({ devices }) {
             <th className="text-left px-4 py-3 font-semibold">Device ID</th>
             <th className="text-left px-4 py-3 font-semibold">Name</th>
             <th className="text-left px-4 py-3 font-semibold">Assigned</th>
+            {onRemove && <th className="px-4 py-3 w-20"></th>}
           </tr>
         </thead>
         <tbody>
           {devices.length === 0 ? (
             <tr>
-              <td colSpan="3" className="px-4 py-8 text-center text-gray-400">No devices assigned.</td>
+              <td colSpan={onRemove ? 4 : 3} className="px-4 py-8 text-center text-gray-400">No devices assigned.</td>
             </tr>
           ) : devices.map(device => (
             <tr key={device.device_id} className="border-t border-gray-100">
               <td className="px-4 py-3 font-mono text-gray-800">{device.device_id}</td>
               <td className="px-4 py-3 text-gray-700">{device.device_name || '-'}</td>
               <td className="px-4 py-3 text-gray-500">{device.created_at ? new Date(device.created_at).toLocaleString() : '-'}</td>
+              {onRemove && (
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => onRemove(device)} className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 text-xs font-medium">
+                    <Trash2 size={14} /> Remove
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -599,16 +674,27 @@ function AllTrucksTable({ devices, tenants, onAssign, onUnassign, saving }) {
             const selectedTenantId = pending[device.device_id] ?? device.assignment?.tenant_id ?? ''
 
             return (
-              <tr key={device.device_id} className="border-t border-gray-100">
-                <td className="px-4 py-3 font-mono text-gray-700">{device.device_id}</td>
+              <tr key={device.device_id} className={`border-t border-gray-100 ${device.orphaned ? 'bg-red-50' : ''}`}>
+                <td className="px-4 py-3 font-mono text-gray-700">
+                  <div className="flex items-center gap-2">
+                    {device.device_id}
+                    {device.orphaned && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">
+                        <AlertTriangle size={10} /> phantom
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-gray-800 font-medium">{device.device_name || '-'}</td>
                 <td className="px-4 py-3">
                   {device.assignment ? (
                     <span className="inline-flex items-center gap-1.5">
                       <span className="text-gray-800">{device.assignment.tenant_name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${usedCount >= maxCount ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                        {usedCount}/{maxCount}
-                      </span>
+                      {!device.orphaned && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${usedCount >= maxCount ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                          {usedCount}/{maxCount}
+                        </span>
+                      )}
                     </span>
                   ) : (
                     <span className="text-gray-400 text-xs">Unassigned</span>
@@ -616,28 +702,33 @@ function AllTrucksTable({ devices, tenants, onAssign, onUnassign, saving }) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <select
-                      value={selectedTenantId}
-                      onChange={e => setPending(prev => ({ ...prev, [device.device_id]: e.target.value }))}
-                      disabled={saving}
-                      className="text-xs px-2 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
-                    >
-                      <option value="">— select company —</option>
-                      {tenants.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => onAssign(device, selectedTenantId)}
-                      disabled={saving || !selectedTenantId || selectedTenantId === device.assignment?.tenant_id}
-                      className="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-40"
-                    >
-                      Assign
-                    </button>
+                    {!device.orphaned && (
+                      <>
+                        <select
+                          value={selectedTenantId}
+                          onChange={e => setPending(prev => ({ ...prev, [device.device_id]: e.target.value }))}
+                          disabled={saving}
+                          className="text-xs px-2 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        >
+                          <option value="">— select company —</option>
+                          {tenants.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => onAssign(device, selectedTenantId)}
+                          disabled={saving || !selectedTenantId || selectedTenantId === device.assignment?.tenant_id}
+                          className="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-40"
+                        >
+                          Assign
+                        </button>
+                      </>
+                    )}
                     {device.assignment && (
                       <button
                         onClick={() => onUnassign(device)}
                         disabled={saving}
+                        title={device.orphaned ? 'Remove phantom device from DB' : 'Unassign truck'}
                         className="text-xs px-2 py-1 text-red-600 hover:text-red-700 disabled:opacity-40"
                       >
                         <Trash2 size={13} />

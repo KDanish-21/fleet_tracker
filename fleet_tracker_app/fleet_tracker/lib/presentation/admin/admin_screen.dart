@@ -717,7 +717,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 icon: Icons.business_rounded,
                 title: tenant.name,
                 subtitle:
-                    '${tenant.slug}  |  ${tenant.deviceCount} trucks  |  ${tenant.userCount} users',
+                    '${tenant.slug}  |  ${tenant.deviceCount}/${tenant.maxDevices} trucks  |  ${tenant.userCount} users',
                 badge: tenant.isActive ? 'active' : 'inactive',
                 trailing: [
                   IconButton(

@@ -274,7 +274,7 @@ async def delete_tenant_user(
 
 @router.get("/devices/all")
 async def list_all_gps51_devices(_: dict = Depends(require_superadmin)):
-    """Return all GPS51 trucks with their current tenant assignment (or unassigned)."""
+    """Return all GPS51 trucks + orphaned DB-only entries, each with assignment info."""
     try:
         data = await get_vehicle_list(settings.GPS51_USERNAME)
     except Exception as e:
@@ -286,12 +286,13 @@ async def list_all_gps51_devices(_: dict = Depends(require_superadmin)):
     flat_devices = [
         d for group in data.get("groups", []) for d in group.get("devices", [])
     ]
+    gps51_ids = {d["deviceid"] for d in flat_devices}
 
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT td.device_id, td.tenant_id, t.slug, t.name
+            SELECT td.device_id, td.device_name, td.tenant_id, t.slug, t.name
             FROM tenant_devices td
             JOIN tenants t ON t.id = td.tenant_id
             """
@@ -304,15 +305,29 @@ async def list_all_gps51_devices(_: dict = Depends(require_superadmin)):
         }
         for r in rows
     }
+    db_name_map = {r["device_id"]: r["device_name"] or "" for r in rows}
 
+    # Real GPS51 devices
     result = [
         {
             "device_id": d["deviceid"],
             "device_name": d.get("devicename", d["deviceid"]),
             "assignment": assignment_map.get(d["deviceid"]),
+            "orphaned": False,
         }
         for d in flat_devices
     ]
+
+    # Phantom/orphaned: in DB but missing from GPS51
+    for device_id, assignment in assignment_map.items():
+        if device_id not in gps51_ids:
+            result.append({
+                "device_id": device_id,
+                "device_name": db_name_map.get(device_id, device_id),
+                "assignment": assignment,
+                "orphaned": True,
+            })
+
     return {"total": len(result), "devices": result}
 
 

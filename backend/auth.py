@@ -88,7 +88,7 @@ async def authenticate_user(email: str, password: str, tenant_id: str) -> dict:
             """
             SELECT id, tenant_id, role, name, email, phone, hashed_password, created_at
             FROM users
-            WHERE LOWER(email) = LOWER($1) AND tenant_id = $2
+            WHERE LOWER(email) = LOWER($1) AND tenant_id = $2 AND is_active = TRUE
             """,
             email,
             uuid.UUID(tenant_id),
@@ -105,7 +105,7 @@ async def authenticate_superadmin(email: str, password: str) -> dict:
             """
             SELECT id, tenant_id, role, name, email, phone, hashed_password, created_at
             FROM users
-            WHERE LOWER(email) = LOWER($1) AND role = 'superadmin'
+            WHERE LOWER(email) = LOWER($1) AND role = 'superadmin' AND is_active = TRUE
             """,
             email,
         )
@@ -146,12 +146,12 @@ async def get_current_user(
             """
             SELECT id, tenant_id, role, name, email, phone, created_at
             FROM users
-            WHERE id = $1
+            WHERE id = $1 AND is_active = TRUE
             """,
             uuid.UUID(user_id),
         )
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="User not found or account deactivated")
 
     if str(user["tenant_id"]) != tenant_id:
         raise HTTPException(status_code=403, detail="Tenant mismatch")
@@ -173,12 +173,12 @@ async def get_current_user_unscoped(
             """
             SELECT id, tenant_id, role, name, email, phone, created_at
             FROM users
-            WHERE id = $1
+            WHERE id = $1 AND is_active = TRUE
             """,
             uuid.UUID(user_id),
         )
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="User not found or account deactivated")
 
     return _user_public(dict(user))
 
